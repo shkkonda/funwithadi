@@ -5,11 +5,12 @@ def main():
     if 'step' not in st.session_state:
         st.session_state.step = 1
         st.session_state.puzzle_solved = False
+        st.session_state.choice1 = "Investigate the donut"  # default value
+        st.session_state.choice2 = "A Map"  # default value
+        st.session_state.choice3 = "Quietly leave the office and head to the nearest taco stand"  # default value
 
     st.title("Silly Office Adventure")
-    st.write(
-        "A goofy, interactive story to keep you entertained (especially if you've had a few drinks)."
-    )
+    st.write("A goofy, interactive story to keep you entertained (especially if you've had a few drinks).")
 
     # STEP 1
     if st.session_state.step == 1:
@@ -34,7 +35,7 @@ def main():
                 "Take a sip of the coffee",
                 "Stand up and stretch",
             ),
-            key="choice1",
+            key="choice1",  # this will update st.session_state.choice1
         )
 
         if st.button("Next"):
