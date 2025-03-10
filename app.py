@@ -1,100 +1,178 @@
 import streamlit as st
 
-# Initialize the game state if not already set
-if "page" not in st.session_state:
-    st.session_state["page"] = "start"
+def main():
+    # Initialize session state variables
+    if 'step' not in st.session_state:
+        st.session_state.step = 1
+        st.session_state.puzzle_solved = False
 
-def reset_game():
-    st.session_state.clear()
-    st.session_state["page"] = "start"
-
-# --- Start Page ---
-if st.session_state["page"] == "start":
-    st.title("Drunken Office Adventure!")
-    st.write("You're in the office and a bit too tipsy to handle your usual work.")
-    st.write("What do you do?")
-    
-    choice = st.radio(
-        "Choose your action:",
-        (
-            "Search for snacks in the break room",
-            "Try to fix the malfunctioning coffee machine",
-            "Chat with a coworker"
-        ),
-        key="start_choice"
+    st.title("Silly Office Adventure")
+    st.write(
+        "A goofy, interactive story to keep you entertained (especially if you've had a few drinks)."
     )
-    
-    if st.button("Proceed", key="start_proceed"):
-        if choice == "Search for snacks in the break room":
-            st.session_state["page"] = "snacks"
-        elif choice == "Try to fix the malfunctioning coffee machine":
-            st.session_state["page"] = "coffee"
-        elif choice == "Chat with a coworker":
-            st.session_state["page"] = "chat"
 
-# --- Snacks Branch ---
-elif st.session_state["page"] == "snacks":
-    st.header("The Snack Hunt")
-    st.write("You wander into the break room in search of snacks...")
-    st.write("You spot a box of donuts and a bag of chips on the counter.")
-    
-    snack_choice = st.radio(
-        "Which one do you pick?",
-        ("Donuts", "Chips"),
-        key="snacks_choice"
-    )
-    
-    if st.button("Proceed", key="snacks_proceed"):
-        if snack_choice == "Donuts":
-            st.write("Donuts, yum! The sugary boost makes you feel unstoppable!")
+    # STEP 1
+    if st.session_state.step == 1:
+        st.write(
+            """
+            You had a couple of drinks at lunch, and now you're stuck in the office late.
+            Time to entertain yourself with some mischief until you can leave...
+            """
+        )
+        st.write(
+            """
+            You wake up from a half-dazed nap at your desk. Your boss is gone. The lights are flickering.
+            There's an eerie silence. In front of you, there's a half-eaten donut and a suspicious cup of coffee.
+            """
+        )
+
+        # First decision
+        choice1 = st.radio(
+            "What do you do first?",
+            (
+                "Investigate the donut",
+                "Take a sip of the coffee",
+                "Stand up and stretch",
+            ),
+            key="choice1",
+        )
+
+        if st.button("Next"):
+            st.session_state.step = 2
+
+    # STEP 2
+    elif st.session_state.step == 2:
+        choice1 = st.session_state.choice1
+
+        if choice1 == "Investigate the donut":
+            st.write(
+                """
+                You poke the donut. A stale chunk falls off—gross!
+                But there's a tiny note inside: "Meet me by the water cooler". Who left this?
+                """
+            )
+        elif choice1 == "Take a sip of the coffee":
+            st.write(
+                """
+                You take a big gulp. It's cold... and tastes like it has so much sugar, your mouth hurts!
+                You feel a sudden burst of energy—perhaps too much?
+                """
+            )
         else:
-            st.write("Chips it is! Crunchy and satisfying, though a bit too greasy for your taste.")
-        st.session_state["page"] = "end"
+            st.write(
+                """
+                You stand and stretch, cracking your back. Ouch, your foot is asleep!
+                As you shake it out, you notice a cryptic note pinned to your cubicle wall...
+                """
+            )
 
-# --- Coffee Branch ---
-elif st.session_state["page"] == "coffee":
-    st.header("The Coffee Machine Challenge")
-    st.write("Determined, you approach the temperamental coffee machine.")
-    st.write("You press buttons and fiddle with the wires, but nothing seems to work.")
-    
-    coffee_choice = st.radio(
-        "Do you:",
-        ("Give it one more try", "Accept defeat and grab a coffee from the vending machine"),
-        key="coffee_choice"
-    )
-    
-    if st.button("Proceed", key="coffee_proceed"):
-        if coffee_choice == "Give it one more try":
-            st.write("Miraculously, with one last twist, the machine sputters to life! Coffee flows like magic!")
+        st.write("You decide to follow the note's mysterious instructions and head toward the water cooler.")
+
+        if st.button("Continue"):
+            st.session_state.step = 3
+
+    # STEP 3
+    elif st.session_state.step == 3:
+        st.write(
+            """
+            At the water cooler, you see a sticky note that reads:
+
+            "Need a refill? Answer the riddle:
+            **I have cities but no houses, forests but no trees, and water but no fish. What am I?**"
+            """
+        )
+        choice2 = st.radio(
+            "Is it:",
+            ("A Sponge", "A Map", "A Desert"),
+            key="choice2",
+        )
+
+        if st.button("Submit Answer"):
+            # Check puzzle
+            if choice2 == "A Map":
+                st.session_state.puzzle_solved = True
+            st.session_state.step = 4
+
+    # STEP 4
+    elif st.session_state.step == 4:
+        puzzle_solved = st.session_state.puzzle_solved
+        choice2 = st.session_state.choice2
+
+        if choice2 == "A Sponge":
+            st.write(
+                """
+                **A sponge?** That doesn't even make sense!
+                The sticky note dissolves in your hand, leaving you stumped and damp. You lose some dignity.
+                """
+            )
+        elif choice2 == "A Map":
+            st.write(
+                """
+                **Correct!** The note reveals a cryptic QR code. You feel a surge of pride.
+                """
+            )
+        else:  # "A Desert"
+            st.write(
+                """
+                **A desert?** That’s definitely got no water, but it doesn't have cities either. Swing and a miss!
+                """
+            )
+
+        # Next branching
+        if puzzle_solved:
+            st.write(
+                """
+                You scan the QR code, and it leads you to an internal company portal with a hidden
+                "secret exit" pass! You realize you can now open the supply closet and slip out the back door.
+                """
+            )
+            choice3 = st.radio(
+                "Do you...",
+                (
+                    "Quietly leave the office and head to the nearest taco stand",
+                    "Stick around a bit longer to see if there's more free snacks",
+                ),
+                key="choice3",
+            )
+
+            if st.button("Final Decision"):
+                if choice3 == "Quietly leave the office and head to the nearest taco stand":
+                    st.write(
+                        """
+                        **Congratulations!** You slip out undetected and treat yourself to tacos.
+                        Freedom and delicious comfort food at last. **You WIN!**
+                        """
+                    )
+                else:
+                    st.write(
+                        """
+                        You linger around, rummaging for more snacks... The cleaning crew finds you
+                        asleep hugging a giant box of stale crackers. They call security. Oops!
+                        **GAME OVER.**
+                        """
+                    )
+                st.session_state.step = 5
         else:
-            st.write("Sometimes, it's best to let technology win. You head over to the vending machine and treat yourself to a coffee.")
-        st.session_state["page"] = "end"
+            st.write(
+                """
+                Without the secret pass, you can't unlock the supply closet. You're doomed to wander the halls...
+                You pace around the corridor and trip over your own shoelaces.
+                Security cameras catch everything. **Busted!**
+                **GAME OVER.**
+                """
+            )
+            st.session_state.step = 5
 
-# --- Chat Branch ---
-elif st.session_state["page"] == "chat":
-    st.header("Office Chit-Chat")
-    st.write("You decide to strike up a conversation with a coworker.")
-    st.write("Your coworker raises an eyebrow at your enthusiasm.")
-    
-    chat_choice = st.radio(
-        "Do you:",
-        ("Crack a hilarious off-the-cuff joke", "Ask for advice on surviving a hangover"),
-        key="chat_choice"
-    )
-    
-    if st.button("Proceed", key="chat_proceed"):
-        if chat_choice == "Crack a hilarious off-the-cuff joke":
-            st.write("Your joke lands perfectly, and soon you're both laughing like there's no tomorrow!")
-        else:
-            st.write("Your coworker shares some surprisingly wise hangover tips. Laughter and wisdom mix in the best way!")
-        st.session_state["page"] = "end"
+    # STEP 5 (END)
+    else:
+        st.write("Thank you for playing **Silly Office Adventure**!")
+        if st.button("Play Again"):
+            # Reset session state for a fresh start
+            for key in ("step", "puzzle_solved", "choice1", "choice2", "choice3"):
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.experimental_rerun()
 
-# --- End Page ---
-elif st.session_state["page"] == "end":
-    st.header("=== Thanks for playing the Drunken Office Adventure! ===")
-    st.write("Remember: Always drink responsibly and keep the office shenanigans fun!")
-    if st.button("Play Again", key="play_again"):
-        reset_game()
-
-# Display the current page state (for debugging, optional)
-st.sidebar.write("Current page:", st.session_state["page"])
+# Run the app
+if __name__ == "__main__":
+    main()
