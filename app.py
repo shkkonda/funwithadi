@@ -28,14 +28,14 @@ def main():
         )
 
         # First decision
-        choice1 = st.radio(
+        st.radio(
             "What do you do first?",
             (
                 "Investigate the donut",
                 "Take a sip of the coffee",
                 "Stand up and stretch",
             ),
-            key="choice1",  # this will update st.session_state.choice1
+            key="choice1",  # this updates st.session_state.choice1
         )
 
         if st.button("Next"):
@@ -43,6 +43,7 @@ def main():
 
     # STEP 2
     elif st.session_state.step == 2:
+        # Now, st.session_state.choice1 is guaranteed to exist
         choice1 = st.session_state.choice1
 
         if choice1 == "Investigate the donut":
