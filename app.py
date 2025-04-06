@@ -1,74 +1,84 @@
 import streamlit as st
-import json
-
-# Define the function to extract the cleaned markdown text
-def extract_text(text):
-    # Define the exact prefix to search for
-    prefix = "(Reuters) -"
-    start_index = text.find(prefix)
-    if start_index == -1:
-        return None
-
-    # Extract the text after the prefix and strip extra whitespace
-    extracted = text[start_index + len(prefix):].strip()
-    
-    # Define the exact chunk to remove (including newlines and spacing)
-    removal_chunk = """Share
-
-- X
-
-- Facebook
-
-- Linkedin
-
-- Email
-
-- Link"""
-    
-    # Look for the removal chunk in the extracted text
-    chunk_index = extracted.find(removal_chunk)
-    if chunk_index != -1:
-        # Remove the entire chunk and everything after it
-        extracted = extracted[:chunk_index].strip()
-    
-    return extracted
-
-# Function to load data from a JSONL file and clean the markdown text if available
-@st.cache_data
-def load_data(file_path):
-    data = []
-    with open(file_path, 'r') as f:
-        for line in f:
-            record = json.loads(line)
-            # If the record has a nested 'response' -> 'markdown' field, clean it.
-            if 'response' in record and 'markdown' in record['response']:
-                cleaned = extract_text(record['response']['markdown'])
-                # Replace the original markdown with the cleaned version if extraction was successful
-                if cleaned is not None:
-                    record['response']['markdown'] = cleaned
-            data.append(record)
-    return data
-
-# Load the JSONL data (adjust the file path as needed)
-data = load_data('scrape_results.jsonl')
-
-# Initialize session state to track the current index
-if 'index' not in st.session_state:
-    st.session_state.index = 0
-
-# Display the current dictionary in a pretty JSON format
-st.json(data[st.session_state.index])
-
-# Create columns for navigation buttons
+from forex_python.converter import CurrencyRates
+def calculate_tax_2025(salary, business=False):
+    tax_slabs = [
+        (400000, 0.00),
+        (800000, 0.05),
+        (1200000, 0.10),
+        (1600000, 0.15),
+        (2000000, 0.20),
+        (2400000, 0.25),
+        (float('inf'), 0.30)
+    ]
+    rebate = 60000
+    standard_deduction = 75000
+    if business:
+        salary /= 2 
+    taxable_income = max(0, salary - standard_deduction)
+    if taxable_income <= 1200000:
+        return 0, 0, 0, 0  
+    tax, prev_limit = 0, 400000
+    for limit, rate in tax_slabs[1:]:
+        if taxable_income > 0:
+            slab_amount = min(taxable_income, limit - prev_limit)
+            tax += slab_amount * rate
+            taxable_income -= slab_amount
+            prev_limit = limit
+        else:
+            break
+    surcharge = 0
+    if taxable_income > 5000000:
+        if taxable_income <= 10000000:
+            surcharge = tax * 0.10
+        elif taxable_income <= 20000000:
+            surcharge = tax * 0.15
+        elif taxable_income <= 50000000:
+            surcharge = tax * 0.25
+        else:
+            surcharge = tax * 0.37
+    cess = (tax + surcharge) * 0.04
+    total_tax = tax + surcharge + cess
+    return round(tax, 2), round(surcharge, 2), round(cess, 2), round(total_tax, 2)
+def calculate_ctc(desired_inhand):
+    return round(desired_inhand / 0.5, 2) 
+st.title("Tax Calculator with 44ADA Comparison")
+salary_input = st.number_input("Enter your Salary/Package", min_value=0.0, step=1000.0)
+frequency = st.selectbox("Salary Frequency", ["Annual", "Monthly"])
+currency = st.selectbox("Currency", ["INR", "USD"])
+business = st.checkbox("Apply 44ADA Method (50% Taxable)")
+desired_inhand = None
+if business:
+    desired_inhand = st.number_input("Desired In-hand Amount (Annual)", min_value=0.0, step=1000.0)
+conversion_rate = 1
+if currency == "USD":
+    try:
+        conversion_rate = CurrencyRates().get_rate('USD', 'INR')
+    except:
+        conversion_rate = 83  
+    salary_input *= conversion_rate
+tax_std, surcharge_std, cess_std, total_tax_std = calculate_tax_2025(salary_input, business=False)
+tax_44ada, surcharge_44ada, cess_44ada, total_tax_44ada = calculate_tax_2025(salary_input, business=True)
+inhand_std = salary_input - total_tax_std
+inhand_44ada = salary_input - total_tax_44ada
+required_ctc = calculate_ctc(desired_inhand) if business and desired_inhand else None
+st.subheader("Tax Calculation Results")
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("Previous"):
-        if st.session_state.index > 0:
-            st.session_state.index -= 1
+    st.write("### Standard Salary Calculation")
+    st.write(f"**Tax:** ₹{tax_std}")
+    st.write(f"**Surcharge:** ₹{surcharge_std}")
+    st.write(f"**Cess:** ₹{cess_std}")
+    st.write(f"**Total Tax:** ₹{total_tax_std}")
+    st.write(f"**In-hand Amount (Annual):** ₹{inhand_std}")
+    st.write(f"**In-hand Amount (Monthly):** ₹{inhand_std / 12:.2f}")
 with col2:
-    if st.button("Next"):
-        if st.session_state.index < len(data) - 1:
-            st.session_state.index += 1
-
-# Display record number info
-st.write(f"Record {st.session_state.index + 1} of {len(data)}")
+    st.write("### 44ADA Calculation")
+    st.write(f"**Tax:** ₹{tax_44ada}")
+    st.write(f"**Surcharge:** ₹{surcharge_44ada}")
+    st.write(f"**Cess:** ₹{cess_44ada}")
+    st.write(f"**Total Tax:** ₹{total_tax_44ada}")
+    st.write(f"**In-hand Amount (Annual):** ₹{inhand_44ada}")
+    st.write(f"**In-hand Amount (Monthly):** ₹{inhand_44ada / 12:.2f}")
+if business and required_ctc:
+    st.subheader("Required CTC for Desired In-hand Amount")
+    st.write(f"**Required CTC:** ₹{required_ctc}")
