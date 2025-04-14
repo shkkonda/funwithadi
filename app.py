@@ -1,84 +1,117 @@
 import streamlit as st
-from forex_python.converter import CurrencyRates
-def calculate_tax_2025(salary, business=False):
-    tax_slabs = [
-        (400000, 0.00),
-        (800000, 0.05),
-        (1200000, 0.10),
-        (1600000, 0.15),
-        (2000000, 0.20),
-        (2400000, 0.25),
-        (float('inf'), 0.30)
-    ]
-    rebate = 60000
-    standard_deduction = 75000
-    if business:
-        salary /= 2 
-    taxable_income = max(0, salary - standard_deduction)
-    if taxable_income <= 1200000:
-        return 0, 0, 0, 0  
-    tax, prev_limit = 0, 400000
-    for limit, rate in tax_slabs[1:]:
-        if taxable_income > 0:
-            slab_amount = min(taxable_income, limit - prev_limit)
-            tax += slab_amount * rate
-            taxable_income -= slab_amount
+import requests
+USD_TO_INR = 83.0
+REBATE_LIMIT = 1200000
+REBATE_AMOUNT = 750000
+CESS_RATE = 0.04
+TAX_SLABS = [
+    (400000, 0.0),
+    (800000, 0.05),
+    (1200000, 0.10),
+    (1600000, 0.15),
+    (2000000, 0.20),
+    (2400000, 0.25),
+    (float('inf'), 0.30),
+]
+def convert_to_annual(salary, period):
+    return salary * 12 if period == "Monthly" else salary
+def convert_currency(amount, currency):
+    if currency == "INR":
+        return amount, 1.0
+    try:
+        API_KEY = '54c096a912b7517a0423c068'
+        response = requests.get(f'https://v6.exchangerate-api.com/v6/{API_KEY}/latest/USD')
+        data = response.json()
+        if data['result'] == 'success':
+            rate = data['conversion_rates'].get('INR')
+            if rate:
+                return amount * rate, rate
+            else:
+                st.warning("INR conversion rate not found. Using fallback.")
+        else:
+            st.warning(f"API Error: {data.get('error-type', 'Unknown')}. Using fallback.")
+    except Exception as e:
+        st.warning(f"Live currency conversion failed: {e}. Using default rate.")
+    return amount * USD_TO_INR, USD_TO_INR
+def calculate_taxable_income_44ada(gross):
+    return gross * 0.50
+def calculate_tax(income):
+    tax = 0
+    prev_limit = 0
+    for limit, rate in TAX_SLABS:
+        if income > limit:
+            tax += (limit - prev_limit) * rate
             prev_limit = limit
         else:
+            tax += (income - prev_limit) * rate
             break
-    surcharge = 0
-    if taxable_income > 5000000:
-        if taxable_income <= 10000000:
-            surcharge = tax * 0.10
-        elif taxable_income <= 20000000:
-            surcharge = tax * 0.15
-        elif taxable_income <= 50000000:
-            surcharge = tax * 0.25
-        else:
-            surcharge = tax * 0.37
-    cess = (tax + surcharge) * 0.04
-    total_tax = tax + surcharge + cess
-    return round(tax, 2), round(surcharge, 2), round(cess, 2), round(total_tax, 2)
-def calculate_ctc(desired_inhand):
-    return round(desired_inhand / 0.5, 2) 
-st.title("Tax Calculator with 44ADA Comparison")
-salary_input = st.number_input("Enter your Salary/Package", min_value=0.0, step=1000.0)
-frequency = st.selectbox("Salary Frequency", ["Annual", "Monthly"])
+    if income <= REBATE_LIMIT:
+        tax = max(0, tax - REBATE_AMOUNT)
+    cess = tax * CESS_RATE
+    return tax, cess
+def compute_44ada(gross):
+    taxable = calculate_taxable_income_44ada(gross)
+    tax, cess = calculate_tax(taxable)
+    net = gross - tax - cess
+    return gross, taxable, tax, cess, net
+def compute_standard(gross):
+    taxable = gross
+    tax, cess = calculate_tax(taxable)
+    net = gross - tax - cess
+    return gross, taxable, tax, cess, net
+def reverse_ctc_44ada(desired_inhand):
+    for ctc in range(int(desired_inhand), int(desired_inhand * 3)):
+        gross, _, tax, cess, net = compute_44ada(ctc)
+        if net >= desired_inhand:
+            return ctc
+    return None
+def reverse_ctc_standard(desired_inhand):
+    for ctc in range(int(desired_inhand), int(desired_inhand * 3)):
+        gross, _, tax, cess, net = compute_standard(ctc)
+        if net >= desired_inhand:
+            return ctc
+    return None
+st.title("💰 Salary Tax Comparator: Standard vs 44ADA")
+salary_input = st.number_input("Enter your Salary / Package", min_value=0.0, value=00.0)
+period = st.selectbox("Select Input Type", ["Annual", "Monthly"])
 currency = st.selectbox("Currency", ["INR", "USD"])
-business = st.checkbox("Apply 44ADA Method (50% Taxable)")
-desired_inhand = None
-if business:
-    desired_inhand = st.number_input("Desired In-hand Amount (Annual)", min_value=0.0, step=1000.0)
-conversion_rate = 1
+salary_inr_annual = convert_to_annual(salary_input, period)
+salary_inr_annual, fx_rate = convert_currency(salary_inr_annual, currency)
 if currency == "USD":
-    try:
-        conversion_rate = CurrencyRates().get_rate('USD', 'INR')
-    except:
-        conversion_rate = 83  
-    salary_input *= conversion_rate
-tax_std, surcharge_std, cess_std, total_tax_std = calculate_tax_2025(salary_input, business=False)
-tax_44ada, surcharge_44ada, cess_44ada, total_tax_44ada = calculate_tax_2025(salary_input, business=True)
-inhand_std = salary_input - total_tax_std
-inhand_44ada = salary_input - total_tax_44ada
-required_ctc = calculate_ctc(desired_inhand) if business and desired_inhand else None
-st.subheader("Tax Calculation Results")
+    st.info(f"💱 1 USD = ₹{fx_rate:.2f} INR (live rate)")
+std_gross, std_taxable, std_tax, std_cess, std_net = compute_standard(salary_inr_annual)
+ada_gross, ada_taxable, ada_tax, ada_cess, ada_net = compute_44ada(salary_inr_annual)
+st.subheader("📊 Tax Breakdown")
 col1, col2 = st.columns(2)
 with col1:
-    st.write("### Standard Salary Calculation")
-    st.write(f"**Tax:** ₹{tax_std}")
-    st.write(f"**Surcharge:** ₹{surcharge_std}")
-    st.write(f"**Cess:** ₹{cess_std}")
-    st.write(f"**Total Tax:** ₹{total_tax_std}")
-    st.write(f"**In-hand Amount (Annual):** ₹{inhand_std}")
-    st.write(f"**In-hand Amount (Monthly):** ₹{inhand_std / 12:.2f}")
+    st.markdown("### Standard Tax Method")
+    st.write(f"**Gross Income:** ₹{std_gross:,.2f}")
+    st.write(f"**Taxable Income:** ₹{std_taxable:,.2f}")
+    st.write(f"**Tax Payable:** ₹{std_tax:,.2f}")
+    st.write(f"**Cess:** ₹{std_cess:,.2f}")
+    st.write(f"**Net In-hand:** ₹{std_net:,.2f}")
+    st.write(f"**Monthly In-hand:** ₹{std_net/12:,.2f}")
 with col2:
-    st.write("### 44ADA Calculation")
-    st.write(f"**Tax:** ₹{tax_44ada}")
-    st.write(f"**Surcharge:** ₹{surcharge_44ada}")
-    st.write(f"**Cess:** ₹{cess_44ada}")
-    st.write(f"**Total Tax:** ₹{total_tax_44ada}")
-    st.write(f"**In-hand Amount (Annual):** ₹{inhand_44ada}")
-    st.write(f"**In-hand Amount (Monthly):** ₹{inhand_44ada / 12:.2f}")
-if business and required_ctc:
-    st.subheader("Required CTC for Desired In-hand Amount")
-    st.write(f"**Required CTC:** ₹{required_ctc}")
+    st.markdown("### 44ADA Method")
+    st.write(f"**Gross Income:** ₹{ada_gross:,.2f}")
+    st.write(f"**Taxable Income (50%):** ₹{ada_taxable:,.2f}")
+    st.write(f"**Tax Payable:** ₹{ada_tax:,.2f}")
+    st.write(f"**Cess:** ₹{ada_cess:,.2f}")
+    st.write(f"**Net In-hand:** ₹{ada_net:,.2f}")
+    st.write(f"**Monthly In-hand:** ₹{ada_net/12:,.2f}")
+st.markdown("---")
+st.subheader("🎯 Reverse CTC Calculator")
+st.markdown("### 44ADA Method")
+desired_inhand_ada = st.number_input("Desired In-hand (44ADA)", min_value=0.0, value=800000.0, key="ada")
+required_ctc_ada = reverse_ctc_44ada(desired_inhand_ada)
+if required_ctc_ada:
+    st.write(f"Required CTC to get the Desired In-hand amount under 44ADA: ₹{required_ctc_ada:,.2f}")
+else:
+    st.error("Could not compute CTC for the given in-hand amount (44ADA).")
+st.markdown("### Standard Method")
+desired_inhand_std = st.number_input("Desired In-hand (Standard)", min_value=0.0, value=800000.0, key="standard")
+required_ctc_std = reverse_ctc_standard(desired_inhand_std)
+if required_ctc_std:
+    st.write(f"Required CTC to get the Desired In-hand amount under Standard Method: ₹{required_ctc_std:,.2f}")
+else:
+    st.error("Could not compute CTC for the given in-hand amount (Standard).")
