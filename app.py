@@ -93,17 +93,8 @@ with col2:
     st.write(f"**Cess:** ₹{ada_cess:,.2f}")
     st.write(f"**Net In-hand:** ₹{ada_net:,.2f}")
     st.write(f"**Monthly In-hand:** ₹{ada_net/12:,.2f}")
-st.markdown("---")
-st.subheader("🎯 Reverse CTC Calculator")
-st.markdown("### Standard Method")
-desired_inhand_std = st.number_input(
-    "Desired In-hand (Standard)",
-    min_value=0.0,
-    value=ada_net,  
-    key="standard"
-)
-required_ctc_std = reverse_ctc_standard(desired_inhand_std)
-if required_ctc_std:
-    st.write(f"Required CTC to get the Desired In-hand amount under Standard Method: ₹{required_ctc_std:,.2f}")
-else:
-    st.error("Could not compute CTC for the given in-hand amount (Standard).")
+if salary_input > 0:
+    required_ctc_std = reverse_ctc_standard(ada_net)
+    if required_ctc_std:
+        st.markdown("---")
+        st.write(f"Required CTC to get the 44ADA Method In-hand amount under Standard Taxation Method: ₹{required_ctc_std:,.2f}")
