@@ -59,12 +59,6 @@ def compute_standard(gross):
     tax, cess = calculate_tax(taxable)
     net = gross - tax - cess
     return gross, taxable, tax, cess, net
-def reverse_ctc_44ada(desired_inhand):
-    for ctc in range(int(desired_inhand), int(desired_inhand * 3)):
-        gross, _, tax, cess, net = compute_44ada(ctc)
-        if net >= desired_inhand:
-            return ctc
-    return None
 def reverse_ctc_standard(desired_inhand):
     for ctc in range(int(desired_inhand), int(desired_inhand * 3)):
         gross, _, tax, cess, net = compute_standard(ctc)
@@ -101,15 +95,13 @@ with col2:
     st.write(f"**Monthly In-hand:** ₹{ada_net/12:,.2f}")
 st.markdown("---")
 st.subheader("🎯 Reverse CTC Calculator")
-st.markdown("### 44ADA Method")
-desired_inhand_ada = st.number_input("Desired In-hand (44ADA)", min_value=0.0, value=800000.0, key="ada")
-required_ctc_ada = reverse_ctc_44ada(desired_inhand_ada)
-if required_ctc_ada:
-    st.write(f"Required CTC to get the Desired In-hand amount under 44ADA: ₹{required_ctc_ada:,.2f}")
-else:
-    st.error("Could not compute CTC for the given in-hand amount (44ADA).")
 st.markdown("### Standard Method")
-desired_inhand_std = st.number_input("Desired In-hand (Standard)", min_value=0.0, value=800000.0, key="standard")
+desired_inhand_std = st.number_input(
+    "Desired In-hand (Standard)",
+    min_value=0.0,
+    value=ada_net,  
+    key="standard"
+)
 required_ctc_std = reverse_ctc_standard(desired_inhand_std)
 if required_ctc_std:
     st.write(f"Required CTC to get the Desired In-hand amount under Standard Method: ₹{required_ctc_std:,.2f}")
