@@ -1,100 +1,102 @@
 import streamlit as st
-import requests
-USD_TO_INR = 83.0
-REBATE_LIMIT = 1200000
-REBATE_AMOUNT = 750000
-CESS_RATE = 0.04
-TAX_SLABS = [
-    (400000, 0.0),
-    (800000, 0.05),
-    (1200000, 0.10),
-    (1600000, 0.15),
-    (2000000, 0.20),
-    (2400000, 0.25),
-    (float('inf'), 0.30),
-]
-def convert_to_annual(salary, period):
-    return salary * 12 if period == "Monthly" else salary
-def convert_currency(amount, currency):
-    if currency == "INR":
-        return amount, 1.0
+import pandas as pd
+from io import BytesIO
+from datetime import datetime
+
+st.set_page_config(page_title="Segments Activator", layout="wide")
+
+st.title("🚀 Segments Activator")
+
+# -------------------------
+# 1. Bulk Upload Section
+# -------------------------
+st.header("📁 Bulk Upload (Excel)")
+
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+template_df = pd.DataFrame({
+    "SegKey": [""],
+    "Platform ID": [""],
+    "Country Code": [""],
+    "Action (Add/Remove)": [""]
+})
+
+# Downloadable Excel template
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
+
+st.download_button("📥 Download Template", to_excel(template_df), file_name="bulk_template.xlsx")
+
+if uploaded_file:
     try:
-        API_KEY = '54c096a912b7517a0423c068'
-        response = requests.get(f'https://v6.exchangerate-api.com/v6/{API_KEY}/latest/USD')
-        data = response.json()
-        if data['result'] == 'success':
-            rate = data['conversion_rates'].get('INR')
-            if rate:
-                return amount * rate, rate
-            else:
-                st.warning("INR conversion rate not found. Using fallback.")
-        else:
-            st.warning(f"API Error: {data.get('error-type', 'Unknown')}. Using fallback.")
+        df_uploaded = pd.read_excel(uploaded_file)
+        st.success("File uploaded successfully!")
+        st.dataframe(df_uploaded)
     except Exception as e:
-        st.warning(f"Live currency conversion failed: {e}. Using default rate.")
-    return amount * USD_TO_INR, USD_TO_INR
-def calculate_taxable_income_44ada(gross):
-    return gross * 0.50
-def calculate_tax(income):
-    tax = 0
-    prev_limit = 0
-    for limit, rate in TAX_SLABS:
-        if income > limit:
-            tax += (limit - prev_limit) * rate
-            prev_limit = limit
-        else:
-            tax += (income - prev_limit) * rate
-            break
-    if income <= REBATE_LIMIT:
-        tax = max(0, tax - REBATE_AMOUNT)
-    cess = tax * CESS_RATE
-    return tax, cess
-def compute_44ada(gross):
-    taxable = calculate_taxable_income_44ada(gross)
-    tax, cess = calculate_tax(taxable)
-    net = gross - tax - cess
-    return gross, taxable, tax, cess, net
-def compute_standard(gross):
-    taxable = gross
-    tax, cess = calculate_tax(taxable)
-    net = gross - tax - cess
-    return gross, taxable, tax, cess, net
-def reverse_ctc_standard(desired_inhand):
-    for ctc in range(int(desired_inhand), int(desired_inhand * 3)):
-        gross, _, tax, cess, net = compute_standard(ctc)
-        if net >= desired_inhand:
-            return ctc
-    return None
-st.title("💰 Salary Tax Comparator: Standard vs 44ADA")
-salary_input = st.number_input("Enter your Salary / Package", min_value=0.0, value=00.0)
-period = st.selectbox("Select Input Type", ["Annual", "Monthly"])
-currency = st.selectbox("Currency", ["INR", "USD"])
-salary_inr_annual = convert_to_annual(salary_input, period)
-salary_inr_annual, fx_rate = convert_currency(salary_inr_annual, currency)
-if currency == "USD":
-    st.info(f"💱 1 USD = ₹{fx_rate:.2f} INR (live rate)")
-std_gross, std_taxable, std_tax, std_cess, std_net = compute_standard(salary_inr_annual)
-ada_gross, ada_taxable, ada_tax, ada_cess, ada_net = compute_44ada(salary_inr_annual)
-st.subheader("📊 Tax Breakdown")
+        st.error(f"Failed to read file: {e}")
+
+# -------------------------
+# 2. Tabs for Bulk Actions
+# -------------------------
+tab1, tab2 = st.tabs(["📦 Segment-Level Actions", "📘 Description-Level Actions"])
+
+with tab1:
+    st.subheader("Segment-Level Bulk Actions")
+    st.text("Upload an Excel or enter data manually below:")
+    st.button("▶️ Process Segment Actions")
+
+with tab2:
+    st.subheader("Description-Level Bulk Actions")
+    st.text("Supports actions based on Level1 descriptions")
+    st.button("▶️ Process Description-Level Actions")
+
+# -------------------------
+# 3. Missing Segments Lookup
+# -------------------------
+st.header("🔍 Missing Segments Insights")
+
 col1, col2 = st.columns(2)
 with col1:
-    st.markdown("### Standard Tax Method")
-    st.write(f"**Gross Income:** ₹{std_gross:,.2f}")
-    st.write(f"**Taxable Income:** ₹{std_taxable:,.2f}")
-    st.write(f"**Tax Payable:** ₹{std_tax:,.2f}")
-    st.write(f"**Cess:** ₹{std_cess:,.2f}")
-    st.write(f"**Net In-hand:** ₹{std_net:,.2f}")
-    st.write(f"**Monthly In-hand:** ₹{std_net/12:,.2f}")
+    platform_filter = st.selectbox("Platform ID", list(range(0, 47)))
 with col2:
-    st.markdown("### 44ADA Method")
-    st.write(f"**Gross Income:** ₹{ada_gross:,.2f}")
-    st.write(f"**Taxable Income (50%):** ₹{ada_taxable:,.2f}")
-    st.write(f"**Tax Payable:** ₹{ada_tax:,.2f}")
-    st.write(f"**Cess:** ₹{ada_cess:,.2f}")
-    st.write(f"**Net In-hand:** ₹{ada_net:,.2f}")
-    st.write(f"**Monthly In-hand:** ₹{ada_net/12:,.2f}")
-if salary_input > 0:
-    required_ctc_std = reverse_ctc_standard(ada_net)
-    if required_ctc_std:
-        st.markdown("---")
-        st.write(f"Required CTC to get the 44ADA Method In-hand amount under Standard Taxation Method: ₹{required_ctc_std:,.2f}")
+    date_range = st.date_input("Created Date Range", (datetime(2024, 1, 1), datetime(2025, 4, 24)))
+
+if st.button("🔍 View Unused Segments"):
+    st.info("Query would run to check unused segments based on filters.")
+    # You can show a mock result
+    st.table(pd.DataFrame({
+        "SegKey": ["123", "456"],
+        "Description": ["Segment A", "Segment B"],
+        "Reason Not Added": ["Custom", "Not valid for platform"]
+    }))
+
+# -------------------------
+# 4. Platform Reference Table
+# -------------------------
+with st.expander("ℹ️ Platform Name ↔ ID Mapping"):
+    platform_dict = {
+        0: "SODA", 1: "TTD - The Trade Desk", 2: "ODC - Oracle Data Cloud", 3: "AdSquare",
+        10: "StartApp", 15: "Adobe", 16: "Lotame", 17: "Nielsen", 18: "Retargetly", 21: "Eyeota",
+        22: "Acxiom", 23: "Neustar", 25: "TTD Extension Product", 26: "Tru Optik", 27: "Amobee",
+        28: "Magenta", 31: "Pubmatic", 32: "NativeTouch", 35: "BidMind", 36: "Mediagrid",
+        37: "Turk Telekom", 38: "Appsflyer", 42: "OpenX", 43: "Equativ", 44: "Yahoo", 45: "Xandr",
+        46: "TTD V2"
+    }
+    platform_table = pd.DataFrame(list(platform_dict.items()), columns=["Platform ID", "Platform Name"])
+    st.dataframe(platform_table)
+
+# -------------------------
+# Optional: Logging output for failed actions
+# -------------------------
+st.header("📋 Failed Segment Log")
+st.caption("Here you’ll see segments that couldn’t be activated with reasons.")
+
+# Example error table
+st.dataframe(pd.DataFrame({
+    "SegKey": ["789", "012"],
+    "Platform": ["StartApp", "TTD"],
+    "Reason": ["Country not mapped", "Invalid segment type"]
+}))
+
